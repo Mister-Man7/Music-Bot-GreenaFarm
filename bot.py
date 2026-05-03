@@ -5,7 +5,7 @@ import asyncio
 from pyrogram import Client, filters, enums
 from pyrogram.types import Message
 from pytgcalls import PyTgCalls, idle
-from pytgcalls.types import MediaStream
+from pytgcalls.types import MediaStream, AudioQuality
 
 from queue_manager import MusicQueue
 from youtube import search_youtube, get_stream_url
@@ -46,7 +46,14 @@ async def play_next(chat_id: int):
         await pytgcalls.leave_call(chat_id)
         return
     url = await get_stream_url(track["url"])
-    await pytgcalls.play(chat_id, MediaStream(url))
+    await pytgcalls.play(
+        chat_id,
+        MediaStream(
+            url,
+            audio_parameters=AudioQuality.HIGH,
+            video_flags=MediaStream.Flags.IGNORE,
+        )
+    )
     await bot.send_message(
         chat_id,
         f"▶️ *Sekarang diputar:*\n🎵 {track['title']}\n⏱ Durasi: {track['duration']}",
@@ -89,7 +96,14 @@ async def play(client: Client, message: Message):
     url = await get_stream_url(result["url"])
 
     try:
-        await pytgcalls.play(chat_id, MediaStream(url))
+        await pytgcalls.play(
+            chat_id,
+            MediaStream(
+                url,
+                audio_parameters=AudioQuality.HIGH,
+                video_flags=MediaStream.Flags.IGNORE,
+            )
+        )
         queue.set_playing(chat_id, True)
         await msg.edit(
             f"▶️ *Sekarang diputar:*\n🎵 {track['title']}\n"
