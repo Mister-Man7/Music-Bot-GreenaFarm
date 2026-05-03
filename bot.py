@@ -16,7 +16,7 @@ from youtube import search_youtube, get_stream_url
 API_ID = int(os.environ["API_ID"])
 API_HASH = os.environ["API_HASH"]
 BOT_TOKEN = os.environ["BOT_TOKEN"]
-SESSION_STRING = os.environ["SESSION_STRING"]  # generate pakai gen_session.py
+SESSION_STRING = os.environ["SESSION_STRING"]
 # ==========================================
 
 logging.basicConfig(
@@ -24,7 +24,6 @@ logging.basicConfig(
     level=logging.INFO
 )
 
-# Inisialisasi client
 app = Client("bot", api_id=API_ID, api_hash=API_HASH, bot_token=BOT_TOKEN)
 userbot = Client("userbot", api_id=API_ID, api_hash=API_HASH, session_string=SESSION_STRING)
 pytgcalls = PyTgCalls(userbot)
@@ -33,14 +32,13 @@ queue = MusicQueue()
 
 
 async def play_next(chat_id: int):
-    """Mainkan lagu berikutnya di queue."""
     track = queue.next(chat_id)
     if not track:
         await pytgcalls.leave_call(chat_id)
         return
 
     url = await get_stream_url(track["url"])
-    await pytgcalls.change_stream(chat_id, MediaStream(url))
+    await pytgcalls.play(chat_id, MediaStream(url))
     await app.send_message(
         chat_id,
         f"▶️ *Sekarang diputar:*\n🎵 {track['title']}\n⏱ Durasi: {track['duration']}",
@@ -71,7 +69,6 @@ async def play(client: Client, message: Message):
         "requested_by": message.from_user.first_name
     }
 
-    # Cek apakah sudah ada yang main
     if queue.is_playing(chat_id):
         queue.add(chat_id, track)
         await msg.edit(
@@ -85,7 +82,7 @@ async def play(client: Client, message: Message):
     url = await get_stream_url(result["url"])
 
     try:
-        await pytgcalls.join_group_call(chat_id, MediaStream(url))
+        await pytgcalls.play(chat_id, MediaStream(url))
         queue.set_playing(chat_id, True)
         await msg.edit(
             f"▶️ *Sekarang diputar:*\n🎵 {track['title']}\n"
@@ -94,18 +91,20 @@ async def play(client: Client, message: Message):
             parse_mode="markdown"
         )
     except Exception as e:
-        await msg.edit(f"❌ Gagal join voice chat!\nPastikan ada voice chat aktif di grup.\n\n`{e}`", parse_mode="markdown")
+        await msg.edit(
+            f"❌ Gagal join voice chat!\n"
+            f"Pastikan ada voice chat aktif di grup.\n\n`{e}`",
+            parse_mode="markdown"
+        )
         queue.clear(chat_id)
 
 
 @app.on_message(filters.command("skip") & filters.group)
 async def skip(client: Client, message: Message):
     chat_id = message.chat.id
-
     if not queue.is_playing(chat_id):
         await message.reply("❌ Tidak ada lagu yang sedang diputar!")
         return
-
     await message.reply("⏭ Melewati lagu...")
     await play_next(chat_id)
 
@@ -113,11 +112,9 @@ async def skip(client: Client, message: Message):
 @app.on_message(filters.command("stop") & filters.group)
 async def stop(client: Client, message: Message):
     chat_id = message.chat.id
-
     if not queue.is_playing(chat_id):
         await message.reply("❌ Tidak ada lagu yang sedang diputar!")
         return
-
     queue.clear(chat_id)
     await pytgcalls.leave_call(chat_id)
     await message.reply("⏹ Musik dihentikan dan bot keluar dari voice chat!")
@@ -127,16 +124,13 @@ async def stop(client: Client, message: Message):
 async def show_queue(client: Client, message: Message):
     chat_id = message.chat.id
     tracks = queue.get_all(chat_id)
-
     if not tracks:
         await message.reply("📋 Queue kosong!")
         return
-
     text = "📋 *Queue Musik:*\n━━━━━━━━━━━━━━━━━━\n"
     for i, track in enumerate(tracks):
         prefix = "▶️" if i == 0 else f"{i}."
         text += f"{prefix} {track['title']}\n    👤 {track['requested_by']} | ⏱ {track['duration']}\n"
-
     await message.reply(text, parse_mode="markdown")
 
 
