@@ -2,7 +2,7 @@ import logging
 import os
 import asyncio
 
-from pyrogram import Client, filters
+from pyrogram import Client, filters, enums
 from pyrogram.types import Message
 from pytgcalls import PyTgCalls, idle
 from pytgcalls.types import MediaStream
@@ -50,7 +50,7 @@ async def play_next(chat_id: int):
     await bot.send_message(
         chat_id,
         f"▶️ *Sekarang diputar:*\n🎵 {track['title']}\n⏱ Durasi: {track['duration']}",
-        parse_mode="md"
+        parse_mode=enums.ParseMode.MARKDOWN
     )
 
 
@@ -59,7 +59,7 @@ async def play(client: Client, message: Message):
     chat_id = message.chat.id
 
     if not message.command[1:]:
-        await message.reply("❌ Contoh: `/play Judul Lagu`", parse_mode="md")
+        await message.reply("❌ Contoh: `/play Judul Lagu`", parse_mode=enums.ParseMode.MARKDOWN)
         return
 
     query = " ".join(message.command[1:])
@@ -81,7 +81,7 @@ async def play(client: Client, message: Message):
         queue.add(chat_id, track)
         await msg.edit(
             f"➕ *Ditambahkan ke queue:*\n🎵 {track['title']}\n📋 Posisi: #{queue.position(chat_id)}",
-            parse_mode="md"
+            parse_mode=enums.ParseMode.MARKDOWN
         )
         return
 
@@ -95,13 +95,13 @@ async def play(client: Client, message: Message):
             f"▶️ *Sekarang diputar:*\n🎵 {track['title']}\n"
             f"⏱ Durasi: {track['duration']}\n"
             f"👤 Diminta oleh: {track['requested_by']}",
-            parse_mode="md"
+            parse_mode=enums.ParseMode.MARKDOWN
         )
     except Exception as e:
         await msg.edit(
             f"❌ Gagal join voice chat!\n"
             f"Pastikan ada voice chat aktif di grup.\n\n`{e}`",
-            parse_mode="md"
+            parse_mode=enums.ParseMode.MARKDOWN
         )
         queue.clear(chat_id)
 
@@ -138,7 +138,7 @@ async def show_queue(client: Client, message: Message):
     for i, track in enumerate(tracks):
         prefix = "▶️" if i == 0 else f"{i}."
         text += f"{prefix} {track['title']}\n    👤 {track['requested_by']} | ⏱ {track['duration']}\n"
-    await message.reply(text, parse_mode="md")
+    await message.reply(text, parse_mode=enums.ParseMode.MARKDOWN)
 
 
 @bot.on_message(filters.command("pause") & filters.group)
@@ -172,7 +172,7 @@ async def help_cmd(client: Client, message: Message):
         "📋 /queue — Lihat antrian lagu\n"
         "━━━━━━━━━━━━━━━━━━\n"
         "💡 Pastikan ada *Voice Chat aktif* di grup sebelum /play!",
-        parse_mode="md"
+        parse_mode=enums.ParseMode.MARKDOWN
     )
 
 
