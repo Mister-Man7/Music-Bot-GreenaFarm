@@ -1,21 +1,19 @@
-import asyncio
 import logging
 import os
+import asyncio
 
-from pyrogram import Client, filters, idle
+from pyrogram import Client, filters
 from pyrogram.types import Message
-from pytgcalls import PyTgCalls
+from pytgcalls import PyTgCalls, idle
 from pytgcalls.types import MediaStream
 
 from queue_manager import MusicQueue
 from youtube import search_youtube, get_stream_url
 
 # ==========================================
-# KONFIGURASI — dari environment variable Railway
-# ==========================================
+BOT_TOKEN = os.environ["BOT_TOKEN"]
 API_ID = int(os.environ["API_ID"])
 API_HASH = os.environ["API_HASH"]
-BOT_TOKEN = os.environ["BOT_TOKEN"]
 SESSION_STRING = os.environ["SESSION_STRING"]
 # ==========================================
 
@@ -24,10 +22,21 @@ logging.basicConfig(
     level=logging.INFO
 )
 
-app = Client("bot", api_id=API_ID, api_hash=API_HASH, bot_token=BOT_TOKEN)
-userbot = Client("userbot", api_id=API_ID, api_hash=API_HASH, session_string=SESSION_STRING)
-pytgcalls = PyTgCalls(userbot)
+userbot = Client(
+    name="userbot",
+    api_id=API_ID,
+    api_hash=API_HASH,
+    session_string=SESSION_STRING
+)
 
+bot = Client(
+    name="bot",
+    api_id=API_ID,
+    api_hash=API_HASH,
+    bot_token=BOT_TOKEN
+)
+
+pytgcalls = PyTgCalls(userbot)
 queue = MusicQueue()
 
 
@@ -36,17 +45,16 @@ async def play_next(chat_id: int):
     if not track:
         await pytgcalls.leave_call(chat_id)
         return
-
     url = await get_stream_url(track["url"])
     await pytgcalls.play(chat_id, MediaStream(url))
-    await app.send_message(
+    await bot.send_message(
         chat_id,
         f"▶️ *Sekarang diputar:*\n🎵 {track['title']}\n⏱ Durasi: {track['duration']}",
         parse_mode="markdown"
     )
 
 
-@app.on_message(filters.command("play") & filters.group)
+@bot.on_message(filters.command("play") & filters.group)
 async def play(client: Client, message: Message):
     chat_id = message.chat.id
 
@@ -72,8 +80,7 @@ async def play(client: Client, message: Message):
     if queue.is_playing(chat_id):
         queue.add(chat_id, track)
         await msg.edit(
-            f"➕ *Ditambahkan ke queue:*\n🎵 {track['title']}\n"
-            f"📋 Posisi: #{queue.position(chat_id)}",
+            f"➕ *Ditambahkan ke queue:*\n🎵 {track['title']}\n📋 Posisi: #{queue.position(chat_id)}",
             parse_mode="markdown"
         )
         return
@@ -99,7 +106,7 @@ async def play(client: Client, message: Message):
         queue.clear(chat_id)
 
 
-@app.on_message(filters.command("skip") & filters.group)
+@bot.on_message(filters.command("skip") & filters.group)
 async def skip(client: Client, message: Message):
     chat_id = message.chat.id
     if not queue.is_playing(chat_id):
@@ -109,7 +116,7 @@ async def skip(client: Client, message: Message):
     await play_next(chat_id)
 
 
-@app.on_message(filters.command("stop") & filters.group)
+@bot.on_message(filters.command("stop") & filters.group)
 async def stop(client: Client, message: Message):
     chat_id = message.chat.id
     if not queue.is_playing(chat_id):
@@ -117,10 +124,10 @@ async def stop(client: Client, message: Message):
         return
     queue.clear(chat_id)
     await pytgcalls.leave_call(chat_id)
-    await message.reply("⏹ Musik dihentikan dan bot keluar dari voice chat!")
+    await message.reply("⏹ Musik dihentikan!")
 
 
-@app.on_message(filters.command("queue") & filters.group)
+@bot.on_message(filters.command("queue") & filters.group)
 async def show_queue(client: Client, message: Message):
     chat_id = message.chat.id
     tracks = queue.get_all(chat_id)
@@ -134,27 +141,25 @@ async def show_queue(client: Client, message: Message):
     await message.reply(text, parse_mode="markdown")
 
 
-@app.on_message(filters.command("pause") & filters.group)
+@bot.on_message(filters.command("pause") & filters.group)
 async def pause(client: Client, message: Message):
-    chat_id = message.chat.id
     try:
-        await pytgcalls.pause_stream(chat_id)
+        await pytgcalls.pause_stream(message.chat.id)
         await message.reply("⏸ Musik dijeda!")
     except Exception:
         await message.reply("❌ Tidak ada musik yang diputar!")
 
 
-@app.on_message(filters.command("resume") & filters.group)
+@bot.on_message(filters.command("resume") & filters.group)
 async def resume(client: Client, message: Message):
-    chat_id = message.chat.id
     try:
-        await pytgcalls.resume_stream(chat_id)
+        await pytgcalls.resume_stream(message.chat.id)
         await message.reply("▶️ Musik dilanjutkan!")
     except Exception:
         await message.reply("❌ Tidak ada musik yang dijeda!")
 
 
-@app.on_message(filters.command("help") & filters.group)
+@bot.on_message(filters.command(["start", "help"]))
 async def help_cmd(client: Client, message: Message):
     await message.reply(
         "🎵 *Bot Music — Daftar Command:*\n"
@@ -174,12 +179,10 @@ async def help_cmd(client: Client, message: Message):
 async def main():
     await userbot.start()
     await pytgcalls.start()
-    await app.start()
+    await bot.start()
     print("✅ Bot music aktif!")
     await idle()
-    await app.stop()
-    await userbot.stop()
 
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    asyncio.get_event_loop().run_until_complete(main())
