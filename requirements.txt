@@ -1,4 +1,4 @@
 pyrofork==2.3.35
 tgcrypto==1.2.5
 py-tgcalls==2.2.11
-yt-dlp==2026.3.26
+yt-dlp==2026.4.30
