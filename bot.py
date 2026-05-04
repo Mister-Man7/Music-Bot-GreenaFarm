@@ -38,6 +38,24 @@ pytgcalls = PyTgCalls(userbot)
 queue = MusicQueue()
 
 
+async def ensure_userbot_in_group(chat_id: int, invite_link: str = None):
+    """Pastiin userbot sudah join grup, kalau belum auto join."""
+    try:
+        await userbot.get_chat_member(chat_id, "me")
+        logging.info(f"Userbot sudah ada di grup {chat_id}")
+    except Exception:
+        logging.info(f"Userbot belum di grup {chat_id}, mencoba join...")
+        try:
+            if invite_link:
+                await userbot.join_chat(invite_link)
+            else:
+                await userbot.join_chat(chat_id)
+            logging.info(f"Userbot berhasil join grup {chat_id}")
+        except Exception as e:
+            logging.error(f"Userbot gagal join grup: {e}")
+            raise Exception(f"Userbot gagal join grup otomatis. Silakan add akun @{(await userbot.get_me()).username} ke grup secara manual lalu jadikan admin!")
+
+
 async def play_next(chat_id: int):
     track = queue.next(chat_id)
     if not track:
@@ -92,8 +110,13 @@ async def play(client: Client, message: Message):
     queue.add(chat_id, track)
 
     try:
+        # Auto join grup kalau belum ada
+        await msg.edit("⏳ Mempersiapkan...")
+        await ensure_userbot_in_group(chat_id)
+
         url = await get_stream_url(result["url"])
         logging.info(f"Stream URL: {url[:80]}")
+
         await pytgcalls.play(
             chat_id,
             MediaStream(
@@ -109,9 +132,10 @@ async def play(client: Client, message: Message):
             f"👤 Diminta oleh: {track['requested_by']}"
         )
         logging.info(f"Berhasil play di {chat_id}")
+
     except Exception as e:
         logging.error(f"Error play: {type(e).__name__}: {e}")
-        await msg.edit(f"❌ Error: {type(e).__name__}\n{e}")
+        await msg.edit(f"❌ {e}")
         queue.clear(chat_id)
 
 
@@ -170,6 +194,8 @@ async def resume(client: Client, message: Message):
 
 @bot.on_message(filters.command(["start", "help"]))
 async def help_cmd(client: Client, message: Message):
+    me = await userbot.get_me()
+    username = f"@{me.username}" if me.username else me.first_name
     await message.reply(
         "🎵 Bot Music - Daftar Command:\n\n"
         "/play judul - Putar lagu dari YouTube\n"
@@ -177,8 +203,23 @@ async def help_cmd(client: Client, message: Message):
         "/pause - Jeda musik\n"
         "/resume - Lanjutkan musik\n"
         "/stop - Hentikan musik\n"
-        "/queue - Lihat antrian lagu\n\n"
+        "/queue - Lihat antrian lagu\n"
+        "/setup - Cara setup bot di grup\n\n"
         "Pastikan Voice Chat aktif di grup sebelum /play!"
+    )
+
+
+@bot.on_message(filters.command("setup") & filters.group)
+async def setup_cmd(client: Client, message: Message):
+    me = await userbot.get_me()
+    username = f"@{me.username}" if me.username else str(me.id)
+    await message.reply(
+        "⚙️ Cara setup bot music di grup ini:\n\n"
+        f"1️⃣ Add {username} ke grup ini\n"
+        f"2️⃣ Jadikan {username} sebagai Admin\n"
+        "3️⃣ Aktifkan Voice Chat di grup\n"
+        "4️⃣ Ketik /play nama lagu\n\n"
+        "✅ Setelah itu bot siap digunakan!"
     )
 
 
