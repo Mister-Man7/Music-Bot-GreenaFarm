@@ -5,8 +5,8 @@ import asyncio
 from pyrogram import Client, filters
 from pyrogram.types import Message, ChatMemberUpdated
 from pyrogram import enums
-from pytgcalls import PyTgCalls, idle, filters as tgfilters
-from pytgcalls.types import MediaStream, AudioQuality
+from pytgcalls import PyTgCalls, idle
+from pytgcalls.types import MediaStream, AudioQuality, StreamEnded
 
 from queue_manager import MusicQueue
 from youtube import search_youtube, get_stream_url
@@ -40,11 +40,12 @@ queue = MusicQueue()
 userbot_username = None
 
 
-@pytgcalls.on_update(tgfilters.stream_end)
+@pytgcalls.on_update()
 async def on_stream_end(client, update):
-    chat_id = update.chat_id
-    logging.info(f"Lagu selesai di {chat_id}, auto next...")
-    await play_next(chat_id)
+    if isinstance(update, StreamEnded):
+        chat_id = update.chat_id
+        logging.info(f"Lagu selesai di {chat_id}, auto next...")
+        await play_next(chat_id)
 
 
 async def ensure_userbot_in_group(chat_id: int) -> bool:
