@@ -37,7 +37,14 @@ bot = Client(
 
 pytgcalls = PyTgCalls(userbot)
 queue = MusicQueue()
-userbot_username = None  # Disimpan saat bot start
+userbot_username = None
+
+
+@pytgcalls.on_stream_end()
+async def on_stream_end(client, update):
+    chat_id = update.chat_id
+    logging.info(f"Lagu selesai di {chat_id}, auto next...")
+    await play_next(chat_id)
 
 
 async def ensure_userbot_in_group(chat_id: int) -> bool:
