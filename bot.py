@@ -2,7 +2,7 @@ import logging
 import os
 import asyncio
 
-from pyrogram import Client, filters, enums
+from pyrogram import Client, filters
 from pyrogram.types import Message
 from pytgcalls import PyTgCalls, idle
 from pytgcalls.types import MediaStream, AudioQuality
@@ -57,7 +57,7 @@ async def play_next(chat_id: int):
     )
     await bot.send_message(
         chat_id,
-        f"▶️ **Sekarang diputar:**\n🎵 {track['title']}\n⏱ Durasi: {track['duration']}",
+        f"▶️ Sekarang diputar:\n🎵 {track['title']}\n⏱ Durasi: {track['duration']}"
     )
 
 
@@ -93,7 +93,7 @@ async def play(client: Client, message: Message):
 
     try:
         url = await get_stream_url(result["url"])
-        logging.info(f"Joining voice chat di {chat_id}")
+        logging.info(f"Stream URL: {url[:80]}")
         await pytgcalls.play(
             chat_id,
             MediaStream(
@@ -128,9 +128,6 @@ async def skip(client: Client, message: Message):
 @bot.on_message(filters.command("stop") & filters.group)
 async def stop(client: Client, message: Message):
     chat_id = message.chat.id
-    if not queue.is_playing(chat_id):
-        await message.reply("❌ Tidak ada lagu yang sedang diputar!")
-        return
     queue.clear(chat_id)
     try:
         await pytgcalls.leave_call(chat_id)
