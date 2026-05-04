@@ -5,7 +5,7 @@ import asyncio
 from pyrogram import Client, filters
 from pyrogram.types import Message, ChatMemberUpdated
 from pyrogram import enums
-from pytgcalls import PyTgCalls, idle
+from pytgcalls import PyTgCalls, idle, filters as tgfilters
 from pytgcalls.types import MediaStream, AudioQuality
 
 from queue_manager import MusicQueue
@@ -40,7 +40,7 @@ queue = MusicQueue()
 userbot_username = None
 
 
-@pytgcalls.on_stream_end()
+@pytgcalls.on_update(tgfilters.stream_end)
 async def on_stream_end(client, update):
     chat_id = update.chat_id
     logging.info(f"Lagu selesai di {chat_id}, auto next...")
