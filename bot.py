@@ -5,7 +5,7 @@ import asyncio
 from pyrogram import Client, filters
 from pyrogram.types import Message, ChatMemberUpdated
 from pyrogram import enums
-from pytgcalls import PyTgCalls, idle
+from pytgcalls import PyTgCalls
 from pytgcalls.types import MediaStream, AudioQuality, StreamEnded
 
 from queue_manager import MusicQueue
@@ -274,8 +274,10 @@ async def main():
     me = await userbot.get_me()
     userbot_username = me.username or str(me.id)
     print(f"✅ Bot music aktif! Userbot: @{userbot_username}")
-    await idle()
+    # Jangan gunakan pytgcalls.idle(): helper tersebut memasang signal handler
+    # dan gagal jika startup dijalankan dari thread selain thread utama.
+    await asyncio.Event().wait()
 
 
 if __name__ == "__main__":
-    asyncio.get_event_loop().run_until_complete(main())
+    asyncio.run(main())
