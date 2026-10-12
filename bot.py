@@ -268,6 +268,9 @@ async def help_cmd(client: Client, message: Message):
 
 async def main():
     global userbot_username
+    # Streamlit dapat menjalankan script pada loop yang berbeda dari loop
+    # saat objek PyTgCalls dibuat ketika modul di-import.
+    pytgcalls.loop = asyncio.get_running_loop()
     await userbot.start()
     await pytgcalls.start()
     await bot.start()
