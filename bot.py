@@ -271,16 +271,31 @@ async def main():
     # Streamlit dapat menjalankan script pada loop yang berbeda dari loop
     # saat objek PyTgCalls dibuat ketika modul di-import.
     pytgcalls.loop = asyncio.get_running_loop()
+    logging.info("Memulai userbot...")
     await userbot.start()
+    logging.info("Userbot berhasil dimulai.")
+    logging.info("Memulai PyTgCalls...")
     await pytgcalls.start()
+    logging.info("PyTgCalls berhasil dimulai.")
+    logging.info("Memulai bot...")
     await bot.start()
+    logging.info("Bot berhasil dimulai.")
     me = await userbot.get_me()
     userbot_username = me.username or str(me.id)
-    print(f"✅ Bot music aktif! Userbot: @{userbot_username}")
+    bot_me = await bot.get_me()
+    logging.info(
+        "Bot music aktif. Userbot: @%s, bot: @%s",
+        userbot_username,
+        bot_me.username or bot_me.id,
+    )
     # Jangan gunakan pytgcalls.idle(): helper tersebut memasang signal handler
     # dan gagal jika startup dijalankan dari thread selain thread utama.
     await asyncio.Event().wait()
 
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    try:
+        asyncio.run(main())
+    except Exception:
+        logging.exception("Startup bot gagal")
+        raise
