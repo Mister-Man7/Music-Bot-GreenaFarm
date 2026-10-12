@@ -35,12 +35,11 @@ bot = Client(
     bot_token=BOT_TOKEN
 )
 
-pytgcalls = PyTgCalls(userbot)
+pytgcalls = None
 queue = MusicQueue()
 userbot_username = None
 
 
-@pytgcalls.on_update()
 async def on_stream_end(client, update):
     if isinstance(update, StreamEnded):
         chat_id = update.chat_id
@@ -267,10 +266,11 @@ async def help_cmd(client: Client, message: Message):
 
 
 async def main():
-    global userbot_username
-    # Streamlit dapat menjalankan script pada loop yang berbeda dari loop
-    # saat objek PyTgCalls dibuat ketika modul di-import.
-    pytgcalls.loop = asyncio.get_running_loop()
+    global pytgcalls, userbot_username
+    # Buat PyTgCalls setelah loop Streamlit aktif agar callback memakai loop yang
+    # sama dengan client Telegram dan dispatcher.
+    pytgcalls = PyTgCalls(userbot)
+    pytgcalls.on_update()(on_stream_end)
     logging.info("Memulai userbot...")
     await userbot.start()
     logging.info("Userbot berhasil dimulai.")
