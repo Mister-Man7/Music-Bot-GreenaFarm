@@ -1,5 +1,5 @@
 pyrofork==2.3.35
 tgcrypto==1.2.5
 py-tgcalls==2.2.11
-yt-dlp @ git+https://github.com/yt-dlp/yt-dlp.git@master
+yt-dlp[default] @ git+https://github.com/yt-dlp/yt-dlp.git@master
 yt-dlp-ejs
