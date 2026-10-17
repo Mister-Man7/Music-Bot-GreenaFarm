@@ -8,7 +8,7 @@ async def search_youtube(query: str) -> dict | None:
         "no_warnings": True,
         "noplaylist": True,
         "cookiefile": "/data/youtube_cookies.txt",
-        "js_runtimes": {"node": {}},
+        "js_runtimes": {"deno": {}},
     }
 
     def _search():
@@ -37,7 +37,7 @@ async def get_stream_url(youtube_url: str) -> str:
         "format": "bestaudio[acodec=opus]/bestaudio[ext=webm]/bestaudio",
         "noplaylist": True,
         "cookiefile": "/data/youtube_cookies.txt",
-        "js_runtimes": {"node": {}},
+        "js_runtimes": {"deno": {}},
     }
 
     def _get_url():
