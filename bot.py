@@ -63,14 +63,37 @@ async def ensure_userbot_in_group(chat_id: int) -> bool:
         return False
 
 
-async def play_next(chat_id: int):
-    track = queue.next(chat_id)
-    if not track:
+def format_duration(duration_sec: int | None) -> str:
+    if not duration_sec:
+        return "-"
+    minutes = duration_sec // 60
+    seconds = duration_sec % 60
+    return f"{minutes}:{seconds:02d}"
+
+
+def cleanup_track_file(track: dict):
+    if track.get("source") != "telegram_video":
+        return
+    file_path = track.get("stream_path")
+    if file_path and os.path.exists(file_path):
         try:
-            await pytgcalls.leave_call(chat_id)
+            os.remove(file_path)
         except Exception:
             pass
+
+
+async def play_track(chat_id: int, track: dict):
+    if track.get("source") == "telegram_video":
+        stream = track["stream_path"]
+        await pytgcalls.play(
+            chat_id,
+            MediaStream(
+                stream,
+                audio_parameters=AudioQuality.HIGH,
+            )
+        )
         return
+
     url = await get_stream_url(track["url"])
     await pytgcalls.play(
         chat_id,
@@ -80,6 +103,20 @@ async def play_next(chat_id: int):
             video_flags=MediaStream.Flags.IGNORE,
         )
     )
+
+
+async def play_next(chat_id: int):
+    tracks = queue.get_all(chat_id)
+    if tracks:
+        cleanup_track_file(tracks[0])
+    track = queue.next(chat_id)
+    if not track:
+        try:
+            await pytgcalls.leave_call(chat_id)
+        except Exception:
+            pass
+        return
+    await play_track(chat_id, track)
     await bot.send_message(
         chat_id,
         f"▶️ Sekarang diputar:\n🎵 {track['title']}\n⏱ Durasi: {track['duration']}"
@@ -137,7 +174,8 @@ async def play(client: Client, message: Message):
         "title": result["title"],
         "url": result["url"],
         "duration": result["duration"],
-        "requested_by": message.from_user.first_name
+        "requested_by": message.from_user.first_name,
+        "source": "youtube",
     }
 
     if queue.is_playing(chat_id):
@@ -149,17 +187,7 @@ async def play(client: Client, message: Message):
 
     try:
         await msg.edit("⏳ Menyiapkan musik...")
-        url = await get_stream_url(result["url"])
-        logging.info(f"Stream URL: {url[:80]}")
-
-        await pytgcalls.play(
-            chat_id,
-            MediaStream(
-                url,
-                audio_parameters=AudioQuality.HIGH,
-                video_flags=MediaStream.Flags.IGNORE,
-            )
-        )
+        await play_track(chat_id, track)
         queue.set_playing(chat_id, True)
         await msg.edit(
             f"▶️ Sekarang diputar:\n🎵 {track['title']}\n"
@@ -177,6 +205,73 @@ async def play(client: Client, message: Message):
         queue.clear(chat_id)
 
 
+@bot.on_message(filters.command("vplay") & filters.group)
+async def vplay(client: Client, message: Message):
+    chat_id = message.chat.id
+    reply = message.reply_to_message
+
+    if not reply:
+        await message.reply("❌ Reply ke video Telegram lalu kirim /vplay")
+        return
+
+    media = reply.video or (
+        reply.document
+        if reply.document and (reply.document.mime_type or "").startswith("video/")
+        else None
+    )
+    if not media:
+        await message.reply("❌ File yang direply harus video Telegram.")
+        return
+
+    msg = await message.reply("⏳ Menyiapkan video Telegram...")
+
+    if not await ensure_userbot_in_group(chat_id):
+        uname = f"@{userbot_username}" if userbot_username else "akun musik"
+        await msg.edit(
+            f"❌ Setup belum selesai!\n\n"
+            f"Silakan add {uname} ke grup ini dan jadikan Admin terlebih dahulu.\n"
+            f"Ketik /setup untuk panduan lengkap."
+        )
+        return
+
+    os.makedirs("/tmp/telegram_videos", exist_ok=True)
+    title = getattr(media, "file_name", None) or "Telegram Video"
+    duration = format_duration(getattr(media, "duration", None))
+    file_id = getattr(media, "file_unique_id", media.file_id)
+    file_path = f"/tmp/telegram_videos/{chat_id}_{file_id}_{title}"
+
+    try:
+        downloaded_path = await client.download_media(reply, file_name=file_path)
+        track = {
+            "title": title,
+            "duration": duration,
+            "requested_by": message.from_user.first_name,
+            "source": "telegram_video",
+            "stream_path": downloaded_path,
+        }
+
+        if queue.is_playing(chat_id):
+            queue.add(chat_id, track)
+            await msg.edit(f"➕ Video ditambahkan ke queue:\n🎬 {track['title']}\n📋 Posisi: #{queue.position(chat_id)}")
+            return
+
+        queue.add(chat_id, track)
+        await play_track(chat_id, track)
+        queue.set_playing(chat_id, True)
+        await msg.edit(
+            f"▶️ Sekarang diputar:\n🎬 {track['title']}\n"
+            f"⏱ Durasi: {track['duration']}\n"
+            f"👤 Diminta oleh: {track['requested_by']}"
+        )
+    except Exception as e:
+        logging.error(f"Error vplay: {type(e).__name__}: {e}")
+        await msg.edit(f"❌ Error: {type(e).__name__}\n{e}")
+        tracks = queue.get_all(chat_id)
+        for track in tracks:
+            cleanup_track_file(track)
+        queue.clear(chat_id)
+
+
 @bot.on_message(filters.command("skip") & filters.group)
 async def skip(client: Client, message: Message):
     chat_id = message.chat.id
@@ -190,6 +285,9 @@ async def skip(client: Client, message: Message):
 @bot.on_message(filters.command("stop") & filters.group)
 async def stop(client: Client, message: Message):
     chat_id = message.chat.id
+    tracks = queue.get_all(chat_id)
+    for track in tracks:
+        cleanup_track_file(track)
     queue.clear(chat_id)
     try:
         await pytgcalls.leave_call(chat_id)
@@ -245,7 +343,8 @@ async def setup_cmd(client: Client, message: Message):
         "/pause - Jeda\n"
         "/resume - Lanjutkan\n"
         "/stop - Stop musik\n"
-        "/queue - Lihat antrian"
+        "/queue - Lihat antrian\n"
+        "/vplay (reply video) - Putar video Telegram"
     )
 
 
@@ -261,6 +360,7 @@ async def help_cmd(client: Client, message: Message):
         "/resume - Lanjutkan musik\n"
         "/stop - Stop musik\n"
         "/queue - Lihat antrian\n"
+        "/vplay (reply video) - Putar video Telegram\n"
         "/setup - Panduan setup\n\n"
         f"Butuh bantuan setup? Ketik /setup"
     )
