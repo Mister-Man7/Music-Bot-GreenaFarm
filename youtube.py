@@ -7,6 +7,7 @@ async def search_youtube(query: str) -> dict | None:
         "quiet": True,
         "no_warnings": True,
         "noplaylist": True,
+        "cookiefile": "/data/youtube_cookies.txt",
     }
 
     def _search():
@@ -34,6 +35,7 @@ async def get_stream_url(youtube_url: str) -> str:
         # Format opus/webm paling compatible sama pytgcalls tanpa re-encode
         "format": "bestaudio[acodec=opus]/bestaudio[ext=webm]/bestaudio",
         "noplaylist": True,
+        "cookiefile": "/data/youtube_cookies.txt",
     }
 
     def _get_url():
